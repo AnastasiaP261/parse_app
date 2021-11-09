@@ -1,4 +1,5 @@
 import re
+import textwrap as tw
 
 import requests
 from bs4 import BeautifulSoup
@@ -40,17 +41,27 @@ class GetDataView(TemplateView):
         content = ''
         for div in soup.body:
             # в body нам необходимы только теги div и main(тк иногда встречаются еще теги header и footer)
-            if div.name in ('div', 'main') and not self.seach_header_footer(div.attrs):
+            # еще определить футер или хедер можно по названиям классов или ид тегов
+
+            if div.name in ('div', 'main') and not self.search_header_footer(div.attrs):
                 for child in div.recursiveChildGenerator():  # от каждого найденного тега строим дерево
+
                     if child.name in VIEW_TAGS:  # проверка контента на "полезность"
-                        content += child.text + '\n'
+                        # wrap используется для разбиения абзаца на строки указанной ширины
+                        content += '\n'.join(tw.wrap(
+                            child.text, width=self.params['output_text_width']
+                        )) + '\n\n'
+
                     elif self.params['saving_img_links'] and child.name == 'img':  # есди надо, добавляются изображения
-                        content += f'IMAGE({child.attrs["src"]})\n'
+                        content += '\n'.join(tw.wrap(
+                            f'IMAGE({child.attrs["src"]})', width=self.params['output_text_width']
+                        )) + '\n\n'
 
         return content.strip()
 
     @staticmethod
-    def seach_header_footer(attrs):
+    def search_header_footer(attrs):
+        # чекаем классы и ид тега, чтобы понять, является ли он основным контентом или это одна из шапок сайта
         if 'class' in attrs:
             for cl in attrs['class']:
                 cl = cl.lower()
@@ -66,6 +77,24 @@ class GetDataView(TemplateView):
 
     def validation(self):
         # валидация url
+        if answ := self.valid_url():
+            return answ
+
+        # валидация ширины текста
+        if answ := self.valid_output_text_width():
+            return answ
+
+        # валидация параметра отвечающего за сохранение ссылок
+        if answ := self.valid_saving_img_links():
+            return answ
+
+        # валидация имени выходного файла
+        if answ := self.valid_file_name():
+            return answ
+
+        return False
+
+    def valid_url(self):
         if "url" not in self.request.GET:
             return {'text': EMPTY_URL, }
         else:
@@ -74,8 +103,9 @@ class GetDataView(TemplateView):
                 return {'text': INVALID_URL, 'code': r.status_code, 'reason': r.reason}
             else:
                 self.params['url'] = self.request.GET['url']
+        return False
 
-        # валидация ширины текста
+    def valid_output_text_width(self):
         if "output_text_width" in self.request.GET:
             try:
                 if int(self.request.GET['output_text_width']) <= 0:
@@ -84,8 +114,9 @@ class GetDataView(TemplateView):
                     self.params['output_text_width'] = int(self.request.GET['output_text_width'])
             except ValueError:
                 return {'text': INVALID_TEXT_WIDTH, }
+        return False
 
-        # валидация параметра отвечающего за сохранение ссылок
+    def valid_saving_img_links(self):
         if "saving_img_links" in self.request.GET:
             if self.request.GET['saving_img_links'] in ('False', 'false', '0'):
                 self.params['saving_img_links'] = False
@@ -93,14 +124,14 @@ class GetDataView(TemplateView):
                 self.params['saving_img_links'] = True
             else:
                 return {'text': INVALID_IMG_LINKS, }
+        return False
 
-        # валидация имени выходного файла
+    def valid_file_name(self):
         if 'file_name' in self.request.GET:
             if re.search(r'^[\w\-]+$', self.request.GET['file_name']):
                 self.params['file_name'] = self.request.GET['file_name']
             else:
                 return {'text': INVALID_FILE_NAME, }
-
         return False
 
 
