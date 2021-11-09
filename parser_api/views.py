@@ -10,15 +10,17 @@ from .answers import *
 
 DEFAULT_OUTPUT_TEXT_WIDTH = 110
 DEFAULT_SAVING_IMG_LINKS = True
+FILE_NAME = 'answer'
 VIEW_TAGS = ('h1', 'p', 'ul', 'ol', 'li')
 NOT_VIEW_TAGS = ('footer', 'header')
 
 
 class GetDataView(TemplateView):
     params = {
-        'url': '',
-        'output_text_width': DEFAULT_OUTPUT_TEXT_WIDTH,
-        'saving_img_links': DEFAULT_SAVING_IMG_LINKS,
+        'url': '',  # url сайта который будет парситься
+        'output_text_width': DEFAULT_OUTPUT_TEXT_WIDTH,  # ширина выходного файла в символах
+        'saving_img_links': DEFAULT_SAVING_IMG_LINKS,  # нужно ли добавлять ссылки на картинки
+        'file_name': FILE_NAME,  # возможность поменять имя выходного файла
     }
 
     def get(self, request, *args, **kwargs):
@@ -28,7 +30,7 @@ class GetDataView(TemplateView):
         text = self.parse_url()
 
         resp = HttpResponse(text, content_type='text/plain')
-        resp['Content-Disposition'] = 'attachment; filename={}.txt'.format('answer')
+        resp['Content-Disposition'] = f'attachment; filename={self.params["file_name"]}.txt'
         return resp
 
     def parse_url(self):
@@ -37,11 +39,12 @@ class GetDataView(TemplateView):
 
         content = ''
         for div in soup.body:
+            # в body нам необходимы только теги div и main(тк иногда встречаются еще теги header и footer)
             if div.name in ('div', 'main') and not self.seach_header_footer(div.attrs):
-                for child in div.recursiveChildGenerator():
-                    if child.name in VIEW_TAGS:
+                for child in div.recursiveChildGenerator():  # от каждого найденного тега строим дерево
+                    if child.name in VIEW_TAGS:  # проверка контента на "полезность"
                         content += child.text + '\n'
-                    elif self.params['saving_img_links'] and child.name == 'img':
+                    elif self.params['saving_img_links'] and child.name == 'img':  # есди надо, добавляются изображения
                         content += f'IMAGE({child.attrs["src"]})\n'
 
         return content.strip()
@@ -90,6 +93,13 @@ class GetDataView(TemplateView):
                 self.params['saving_img_links'] = True
             else:
                 return {'text': INVALID_IMG_LINKS, }
+
+        # валидация имени выходного файла
+        if 'file_name' in self.request.GET:
+            if re.search(r'^[\w\-]+$', self.request.GET['file_name']):
+                self.params['file_name'] = self.request.GET['file_name']
+            else:
+                return {'text': INVALID_FILE_NAME, }
 
         return False
 
