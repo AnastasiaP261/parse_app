@@ -1,16 +1,17 @@
-from django.shortcuts import render
-from rest_framework import viewsets
-from rest_framework.response import Response
-from django.views.generic import TemplateView
-from django.http import HttpResponse
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
-from .answers import *
-import requests
+import re
 
+import requests
+from bs4 import BeautifulSoup
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.views.generic import TemplateView
+
+from .answers import *
 
 DEFAULT_OUTPUT_TEXT_WIDTH = 110
 DEFAULT_SAVING_IMG_LINKS = True
+VIEW_TAGS = ('h1', 'p', 'ul', 'ol', 'li')
+NOT_VIEW_TAGS = ('footer', 'header')
 
 
 class GetDataView(TemplateView):
@@ -24,12 +25,41 @@ class GetDataView(TemplateView):
         if answ := self.validation():
             return render(request, 'error.html', {'err': answ})
 
-        resp = HttpResponse('some text', content_type='text/plain')
+        text = self.parse_url()
+
+        resp = HttpResponse(text, content_type='text/plain')
         resp['Content-Disposition'] = 'attachment; filename={}.txt'.format('answer')
         return resp
 
     def parse_url(self):
-        pass
+        parse_site = requests.get(self.params['url'])
+        soup = BeautifulSoup(parse_site.text, 'html.parser')
+
+        content = ''
+        for div in soup.body:
+            if div.name in ('div', 'main') and not self.seach_header_footer(div.attrs):
+                for child in div.recursiveChildGenerator():
+                    if child.name in VIEW_TAGS:
+                        content += child.text + '\n'
+                    elif self.params['saving_img_links'] and child.name == 'img':
+                        content += f'IMAGE({child.attrs["src"]})\n'
+
+        return content.strip()
+
+    @staticmethod
+    def seach_header_footer(attrs):
+        if 'class' in attrs:
+            for cl in attrs['class']:
+                cl = cl.lower()
+                if cl.find('footer') != -1 or cl.find('header') != -1:
+                    return True
+
+        if 'id' in attrs:
+            cl = attrs['id'].lower()
+            if cl.find('footer') != -1 or cl.find('header') != -1:
+                return True
+
+        return False
 
     def validation(self):
         # валидация url
@@ -66,4 +96,3 @@ class GetDataView(TemplateView):
 
 class HelpView(TemplateView):
     template_name = 'help.html'
-
