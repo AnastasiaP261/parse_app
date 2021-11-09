@@ -58,3 +58,7 @@ class GetDataView(TemplateView):
 
         return False
 
+
+class HelpView(TemplateView):
+    template_name = 'help.html'
+
