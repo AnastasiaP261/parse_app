@@ -24,7 +24,12 @@ class GetDataView(TemplateView):
         if answ := self.validation():
             return render(request, 'error.html', {'err': answ})
 
-        return HttpResponse('Hello world!')
+        resp = HttpResponse('some text', content_type='text/plain')
+        resp['Content-Disposition'] = 'attachment; filename={}.txt'.format('answer')
+        return resp
+
+    def parse_url(self):
+        pass
 
     def validation(self):
         # валидация url
