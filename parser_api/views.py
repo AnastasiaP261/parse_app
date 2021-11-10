@@ -96,11 +96,14 @@ class GetDataView(TemplateView):
 
     def valid_url(self):
         if "url" not in self.request.GET:
-            return {'text': EMPTY_URL, }
+            return EMPTY_URL
         else:
             r = requests.head(self.request.GET['url'])
             if r.status_code != 200:
-                return {'text': INVALID_URL, 'code': r.status_code, 'reason': r.reason}
+                return {
+                    'text': INVALID_URL['text'],
+                    'reason': INVALID_URL['reason'].format(r.status_code, r.reason),
+                }
             else:
                 self.params['url'] = self.request.GET['url']
         return False
@@ -109,11 +112,11 @@ class GetDataView(TemplateView):
         if "output_text_width" in self.request.GET:
             try:
                 if int(self.request.GET['output_text_width']) <= 0:
-                    return {'text': INVALID_TEXT_WIDTH, }
+                    return INVALID_TEXT_WIDTH
                 else:
                     self.params['output_text_width'] = int(self.request.GET['output_text_width'])
             except ValueError:
-                return {'text': INVALID_TEXT_WIDTH, }
+                return INVALID_TEXT_WIDTH
         return False
 
     def valid_saving_img_links(self):
@@ -123,7 +126,7 @@ class GetDataView(TemplateView):
             elif self.request.GET['saving_img_links'] in ('True', 'true', '1'):
                 self.params['saving_img_links'] = True
             else:
-                return {'text': INVALID_IMG_LINKS, }
+                return INVALID_IMG_LINKS
         return False
 
     def valid_file_name(self):
@@ -131,7 +134,7 @@ class GetDataView(TemplateView):
             if re.search(r'^[\w\-]+$', self.request.GET['file_name']):
                 self.params['file_name'] = self.request.GET['file_name']
             else:
-                return {'text': INVALID_FILE_NAME, }
+                return INVALID_FILE_NAME
         return False
 
 
