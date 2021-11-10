@@ -12,7 +12,7 @@ from .answers import *
 DEFAULT_OUTPUT_TEXT_WIDTH = 110
 DEFAULT_SAVING_IMG_LINKS = True
 FILE_NAME = 'answer'
-VIEW_TAGS = ('h1', 'p', 'ul', 'ol', 'li')
+VIEW_TAGS = ('h1', 'h2', 'h3', 'p', 'ul', 'ol', 'li')
 NOT_VIEW_TAGS = ('footer', 'header')
 
 
